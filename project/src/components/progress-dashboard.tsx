@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, Target, Clock, Award, Flame, BookOpen, Brain, CheckCircle, ChevronRight,Calendar } from 'lucide-react';
+import { TrendingUp, Target, Clock, Award, Flame, BookOpen, Brain, CheckCircle, ChevronRight, Star, Trophy, Zap } from 'lucide-react';
 import { supabase, type UserProgress, type DailyGoal, type Achievement, type ComprehensiveSubject } from '@/lib/supabase';
 
 interface ProgressDashboardProps {
@@ -237,39 +237,55 @@ export function ProgressDashboard({ onSubjectSelect }: ProgressDashboardProps) {
       </div>
 
       {/* Achievements */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-500" />
-            Achievements
-          </h3>
-          <span className="text-sm text-slate-500">{unlockedAchievements.length}/{achievements.length} unlocked</span>
+      <div className="relative overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-slate-950 via-indigo-950 to-amber-700 p-6 text-white shadow-xl">
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl"></div>
+        <div className="relative mb-5 flex items-center justify-between">
+          <div>
+            <h3 className="flex items-center gap-2 text-xl font-bold">
+              <Trophy className="h-6 w-6 text-amber-300" /> Achievement Arena
+            </h3>
+            <p className="mt-1 text-sm text-amber-100">Unlock XP badges by studying, solving questions, creating flashcards, and keeping streaks.</p>
+          </div>
+          <div className="rounded-2xl bg-white/10 px-4 py-2 text-right backdrop-blur">
+            <p className="text-2xl font-black">{unlockedAchievements.length}/{achievements.length}</p>
+            <p className="text-xs text-amber-100">unlocked</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-          {achievements.slice(0, 10).map((achievement) => (
+        <div className="relative grid grid-cols-2 gap-3 md:grid-cols-5">
+          {(achievements.length ? achievements : [
+            { id: 'starter', name: 'First Spark', description: 'Start your Chakra-AI journey', unlocked: true, xp_reward: 50 },
+            { id: 'quiz', name: 'Quiz Crafter', description: 'Create a quiz from material', unlocked: false, xp_reward: 100 },
+            { id: 'voice', name: 'Voice Learner', description: 'Listen to an AI explanation', unlocked: false, xp_reward: 80 },
+            { id: 'flash', name: 'Flashcard Pro', description: 'Create flashcards', unlocked: false, xp_reward: 120 },
+            { id: 'streak', name: '7-Day Flame', description: 'Maintain a streak', unlocked: false, xp_reward: 200 },
+          ]).slice(0, 10).map((achievement) => (
             <div
               key={achievement.id}
-              className={`relative p-3 rounded-xl text-center transition-all ${
+              className={`group relative overflow-hidden rounded-2xl p-4 text-center transition-all hover:-translate-y-1 ${
                 achievement.unlocked
-                  ? 'bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200'
-                  : 'bg-slate-50 opacity-50'
+                  ? 'border border-amber-200/70 bg-white text-slate-900 shadow-lg shadow-amber-500/20'
+                  : 'border border-white/10 bg-white/10 text-white/70 backdrop-blur'
               }`}
               title={achievement.description || ''}
             >
-              <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-1 ${
-                achievement.unlocked ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-400'
-              }`}>
-                <Award className="w-5 h-5" />
+              <div className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${achievement.unlocked ? 'bg-gradient-to-br from-amber-300 to-orange-500 text-white' : 'bg-white/10 text-white/50'}`}>
+                {achievement.unlocked ? <Star className="h-6 w-6 fill-current" /> : <Award className="h-6 w-6" />}
               </div>
-              <p className="text-xs font-medium text-slate-700 truncate">{achievement.name}</p>
+              <p className="text-sm font-bold">{achievement.name}</p>
+              <p className={`mt-1 text-xs ${achievement.unlocked ? 'text-slate-500' : 'text-white/50'}`}>{achievement.xp_reward || 50} XP</p>
               {achievement.unlocked && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-3 h-3 text-white" />
+                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+                  <CheckCircle className="h-4 w-4" />
                 </span>
               )}
             </div>
           ))}
+        </div>
+
+        <div className="relative mt-5 rounded-2xl bg-white/10 p-4 backdrop-blur">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-100"><Zap className="h-4 w-4" /> Next unlock path</div>
+          <p className="mt-1 text-sm text-white/85">Upload one material, create a quiz, answer 10 questions, and generate flashcards to unlock the Quiz Crafter badge.</p>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Sparkles, Clock, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, Play } from 'lucide-react';
+import { Send, Bot, Sparkles, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, UploadCloud, Wand2, Trophy, Mic2, Volume2, Layers, Download, HelpCircle } from 'lucide-react';
 import { supabase, type ComprehensiveSubject, type UserExam, type OnlineResource } from '@/lib/supabase';
 
 interface Message {
@@ -11,18 +11,41 @@ interface Message {
   resources?: OnlineResource[];
 }
 
+type StudentProfile = {
+  name: string;
+  phone: string;
+  email: string;
+  authMethod: 'phone' | 'google' | 'email';
+  classLevel: string;
+  improvementSubjects: string[];
+};
+
+type StudyMaterial = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  subject: string;
+  note: string;
+  addedAt: string;
+};
+
 interface AITutorChatProps {
   selectedCategory?: string | null;
   selectedSubject?: ComprehensiveSubject | null;
   upcomingExam?: UserExam | null;
+  studentProfile?: StudentProfile | null;
+  studyMaterials?: StudyMaterial[];
+  onNavigate?: (tab: 'dashboard' | 'subjects' | 'exams' | 'materials' | 'ai-tutor') => void;
 }
 
-export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam }: AITutorChatProps) {
+export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam, studentProfile, studyMaterials = [], onNavigate }: AITutorChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [subjects, setSubjects] = useState<ComprehensiveSubject[]>([]);
   const [userExams, setUserExams] = useState<UserExam[]>([]);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -58,11 +81,14 @@ I can help you:
 • **Exam Preparation**: Set your exam date and I'll create a study plan, preparing you one day before
 • **25+ Subjects**: Math, Physics, Chemistry, Biology, History, Economics, CS, Languages (German, Spanish, French), Psychology, Philosophy, and more
 
+${studentProfile ? `\nStudent profile: ${studentProfile.name}, ${studentProfile.classLevel}, focusing on ${studentProfile.improvementSubjects.join(', ')}.` : ''}
+${studyMaterials.length ? `\nI can already use ${studyMaterials.length} uploaded material(s): ${studyMaterials.slice(0, 3).map((m) => m.name).join(', ')}.` : ''}
+
 How can I help you today?`;
     }
 
     setMessages([{ role: 'assistant', content: greeting, timestamp: new Date() }]);
-  }, [selectedSubject, upcomingExam]);
+  }, [selectedSubject, upcomingExam, studentProfile, studyMaterials]);
 
   useEffect(() => {
     fetchData();
@@ -80,6 +106,15 @@ How can I help you today?`;
     ]);
     if (subjectsRes.data) setSubjects(subjectsRes.data);
     if (examsRes.data) setUserExams(examsRes.data);
+  };
+
+  const speak = (text: string) => {
+    if (!voiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#•]/g, ''));
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleSend = async () => {
@@ -102,7 +137,47 @@ How can I help you today?`;
 
       const lowerInput = input.toLowerCase();
 
-      if (lowerInput.includes('exam') && (lowerInput.includes('when') || lowerInput.includes('date'))) {
+      if (lowerInput.includes('flashcard') || lowerInput.includes('flash card')) {
+        const source = studyMaterials[0]?.name || selectedSubject?.name || 'your current chapter';
+        response = `**Flashcards from ${source}**\n\n1. Front: What is the main concept?\n   Back: Define it in one sentence, then add one example from your notes.\n\n2. Front: Which formula/rule is used most?\n   Back: Write the formula, meaning of each term, and one solved step.\n\n3. Front: What mistake should I avoid?\n   Back: Check units, signs, keywords, and final answer reasonableness.\n\n4. Front: How can this appear in an exam?\n   Back: As a definition, short answer, MCQ, numerical, or diagram-based question.\n\nUse **My Materials** to upload a specific chapter, then ask: "Make 20 flashcards from this file."`;
+      } else if (lowerInput.includes('download') || lowerInput.includes('resource') || lowerInput.includes('online')) {
+        const subject = selectedSubject?.name || studentProfile?.improvementSubjects[0] || 'your subject';
+        response = `**Downloadable and online resources for ${subject}**\n\n• OpenStax / NCERT-style textbook notes for theory\n• Khan Academy practice for foundation concepts\n• MIT OCW / university notes for advanced topics\n• YouTube explainers for visual learning\n• Previous-year questions and formula sheets for exam practice\n\nChakra-AI plan: tell me your exact chapter and I will organize resources into **Watch → Read → Practice → Revise** with flashcards and a quiz.`;
+      } else if (lowerInput.includes('material') || lowerInput.includes('upload') || lowerInput.includes('notes') || lowerInput.includes('pdf')) {
+        if (studyMaterials.length > 0) {
+          const materialList = studyMaterials.slice(0, 5).map((material, index) => `${index + 1}. ${material.name} (${material.subject})${material.note ? ` - ${material.note}` : ''}`).join('\n');
+          response = `I found your uploaded study materials and will use them as the center of your learning plan:
+
+${materialList}
+
+**Material-aware help I can provide:**
+• Summarize each file into easy revision notes
+• Create chapter-wise practice questions
+• Solve questions step by step using your notes
+• Make flashcards and quick quizzes from the uploaded material
+
+Ask me: "Create a quiz from my notes" or paste a question from your file.`;
+        } else {
+          onNavigate?.('materials');
+          response = 'I am opening **My Materials** for you. Upload your PDFs, notes, images, worksheets, or question papers there. After that, I can summarize them, create quizzes, and solve questions according to your own material.';
+        }
+      } else if (lowerInput.includes('solve') || lowerInput.includes('answer') || lowerInput.includes('question')) {
+        const focus = selectedSubject?.name || studentProfile?.improvementSubjects[0] || 'the topic';
+        response = `Let's solve it together for **${focus}**.
+
+**Step-by-step solution method:**
+1. Identify what the question is asking.
+2. List the given information from the problem.
+3. Choose the correct formula, concept, or rule.
+4. Work through each step clearly.
+5. Check the final answer and explain why it makes sense.
+
+Paste the full question (or upload its image/material in **My Materials**) and I will provide a complete, student-friendly solution with practice follow-ups.`;
+      } else if (lowerInput.includes('quiz') || lowerInput.includes('practice')) {
+        const focusSubjects = studentProfile?.improvementSubjects.join(', ') || selectedSubject?.name || 'your subject';
+        const materialName = studyMaterials[0]?.name;
+        response = `**Chakra-AI Quiz Builder: ${focusSubjects}**\n\n${materialName ? `Using your uploaded material: **${materialName}**` : 'Upload a material to make this quiz match your notes exactly.'}\n\n**Section A — Quick Recall**\n1. Define the most important term from this chapter.\n2. List two facts/formulas you must remember.\n\n**Section B — Application**\n3. Solve one example using the main rule or formula.\n4. Explain why each step is valid.\n\n**Section C — Exam Challenge**\n5. A tricky question will mix two concepts. Identify both and solve slowly.\n\nReply with your answers. I will grade them, explain mistakes, update readiness, and turn weak points into flashcards.`;
+      } else if (lowerInput.includes('exam') && (lowerInput.includes('when') || lowerInput.includes('date'))) {
         if (userExams.length > 0) {
           const exam = userExams[0];
           const daysUntil = Math.ceil((new Date(exam.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -220,6 +295,7 @@ Just let me know how you'd like to proceed!`;
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      speak(response);
       setIsTyping(false);
     }, 1000);
   };
@@ -229,26 +305,41 @@ Just let me know how you'd like to proceed!`;
     { icon: Globe, label: 'Find online resources', prompt: 'Find online resources for my subject' },
     { icon: BookOpen, label: 'Create study plan', prompt: 'Create a study plan for me' },
     { icon: Search, label: 'Explain a topic', prompt: 'Explain a topic to me' },
+    { icon: UploadCloud, label: 'Use my materials', prompt: 'Use my uploaded materials to help me study' },
+    { icon: Wand2, label: 'Practice quiz', prompt: 'Create a practice quiz using my uploaded materials' },
+    { icon: Layers, label: 'Flashcards', prompt: 'Create flashcards from my materials' },
+    { icon: Download, label: 'Downloads', prompt: 'Find downloadable online resources for my subject' },
+    { icon: HelpCircle, label: 'Solve book question', prompt: 'Solve this book question step by step' },
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex h-full flex-col bg-gradient-to-b from-emerald-50 to-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-4">
+      <div className="border-b border-emerald-100 bg-white p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-slate-800">AI Tutor</h3>
-            <p className="text-xs text-slate-500">Powered by online resources & your materials</p>
+            <h3 className="font-semibold text-slate-800">Chakra-AI Command Tutor for {studentProfile?.classLevel || 'Students'}</h3>
+            <p className="text-xs text-slate-500">Controls quizzes, flashcards, resources, question solving & voice explanations</p>
           </div>
+          <button onClick={() => setVoiceEnabled((current) => !current)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${voiceEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            {voiceEnabled ? <Volume2 className="mr-1 inline h-4 w-4" /> : <Mic2 className="mr-1 inline h-4 w-4" />}Voice {voiceEnabled ? 'on' : 'off'}
+          </button>
           {upcomingExam && (
             <div className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-xs font-medium">
               {Math.ceil((new Date(upcomingExam.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days to exam
             </div>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-emerald-100 bg-white/70 px-4 py-3">
+        {studentProfile?.improvementSubjects.map((subject) => (
+          <span key={subject} className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"><Trophy className="mr-1 inline h-3 w-3" />{subject}</span>
+        ))}
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">{studyMaterials.length} material(s) uploaded</span>
       </div>
 
       {/* Messages */}
