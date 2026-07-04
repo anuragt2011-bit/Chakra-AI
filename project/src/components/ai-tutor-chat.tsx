@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Sparkles, Clock, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, Play } from 'lucide-react';
+import { Send, Bot, Sparkles, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, UploadCloud, Wand2, Trophy } from 'lucide-react';
 import { supabase, type ComprehensiveSubject, type UserExam, type OnlineResource } from '@/lib/supabase';
 
 interface Message {
@@ -11,13 +11,34 @@ interface Message {
   resources?: OnlineResource[];
 }
 
+type StudentProfile = {
+  name: string;
+  phone: string;
+  email: string;
+  authMethod: 'phone' | 'google' | 'email';
+  classLevel: string;
+  improvementSubjects: string[];
+};
+
+type StudyMaterial = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  subject: string;
+  note: string;
+  addedAt: string;
+};
+
 interface AITutorChatProps {
   selectedCategory?: string | null;
   selectedSubject?: ComprehensiveSubject | null;
   upcomingExam?: UserExam | null;
+  studentProfile?: StudentProfile | null;
+  studyMaterials?: StudyMaterial[];
 }
 
-export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam }: AITutorChatProps) {
+export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam, studentProfile, studyMaterials = [] }: AITutorChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -58,11 +79,14 @@ I can help you:
 • **Exam Preparation**: Set your exam date and I'll create a study plan, preparing you one day before
 • **25+ Subjects**: Math, Physics, Chemistry, Biology, History, Economics, CS, Languages (German, Spanish, French), Psychology, Philosophy, and more
 
+${studentProfile ? `\nStudent profile: ${studentProfile.name}, ${studentProfile.classLevel}, focusing on ${studentProfile.improvementSubjects.join(', ')}.` : ''}
+${studyMaterials.length ? `\nI can already use ${studyMaterials.length} uploaded material(s): ${studyMaterials.slice(0, 3).map((m) => m.name).join(', ')}.` : ''}
+
 How can I help you today?`;
     }
 
     setMessages([{ role: 'assistant', content: greeting, timestamp: new Date() }]);
-  }, [selectedSubject, upcomingExam]);
+  }, [selectedSubject, upcomingExam, studentProfile, studyMaterials]);
 
   useEffect(() => {
     fetchData();
@@ -102,7 +126,46 @@ How can I help you today?`;
 
       const lowerInput = input.toLowerCase();
 
-      if (lowerInput.includes('exam') && (lowerInput.includes('when') || lowerInput.includes('date'))) {
+      if (lowerInput.includes('material') || lowerInput.includes('upload') || lowerInput.includes('notes') || lowerInput.includes('pdf')) {
+        if (studyMaterials.length > 0) {
+          const materialList = studyMaterials.slice(0, 5).map((material, index) => `${index + 1}. ${material.name} (${material.subject})${material.note ? ` - ${material.note}` : ''}`).join('\n');
+          response = `I found your uploaded study materials and will use them as the center of your learning plan:
+
+${materialList}
+
+**Material-aware help I can provide:**
+• Summarize each file into easy revision notes
+• Create chapter-wise practice questions
+• Solve questions step by step using your notes
+• Make flashcards and quick quizzes from the uploaded material
+
+Ask me: "Create a quiz from my notes" or paste a question from your file.`;
+        } else {
+          response = 'Please open **My Materials** and upload your PDFs, notes, images, worksheets, or question papers. After that, I can summarize them, create quizzes, and solve questions according to your own material.';
+        }
+      } else if (lowerInput.includes('solve') || lowerInput.includes('answer') || lowerInput.includes('question')) {
+        const focus = selectedSubject?.name || studentProfile?.improvementSubjects[0] || 'the topic';
+        response = `Let's solve it together for **${focus}**.
+
+**Step-by-step solution method:**
+1. Identify what the question is asking.
+2. List the given information from the problem.
+3. Choose the correct formula, concept, or rule.
+4. Work through each step clearly.
+5. Check the final answer and explain why it makes sense.
+
+Paste the full question (or upload its image/material in **My Materials**) and I will provide a complete, student-friendly solution with practice follow-ups.`;
+      } else if (lowerInput.includes('quiz') || lowerInput.includes('practice')) {
+        const focusSubjects = studentProfile?.improvementSubjects.join(', ') || selectedSubject?.name || 'your subject';
+        response = `Great choice! Here is a quick practice format for **${focusSubjects}**:
+
+**Warm-up:** 3 easy concept checks
+**Core practice:** 5 exam-style questions
+**Challenge:** 1 higher-order thinking problem
+**Reflection:** I explain mistakes and suggest what to revise next
+
+${studyMaterials.length ? 'Because you uploaded materials, I can align the practice to your notes. Tell me which file or chapter to use.' : 'Upload your materials for practice that matches your class notes exactly.'}`;
+      } else if (lowerInput.includes('exam') && (lowerInput.includes('when') || lowerInput.includes('date'))) {
         if (userExams.length > 0) {
           const exam = userExams[0];
           const daysUntil = Math.ceil((new Date(exam.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -229,19 +292,21 @@ Just let me know how you'd like to proceed!`;
     { icon: Globe, label: 'Find online resources', prompt: 'Find online resources for my subject' },
     { icon: BookOpen, label: 'Create study plan', prompt: 'Create a study plan for me' },
     { icon: Search, label: 'Explain a topic', prompt: 'Explain a topic to me' },
+    { icon: UploadCloud, label: 'Use my materials', prompt: 'Use my uploaded materials to help me study' },
+    { icon: Wand2, label: 'Practice quiz', prompt: 'Create a practice quiz for my weak subjects' },
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex h-full flex-col bg-gradient-to-b from-emerald-50 to-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-4">
+      <div className="border-b border-emerald-100 bg-white p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-slate-800">AI Tutor</h3>
-            <p className="text-xs text-slate-500">Powered by online resources & your materials</p>
+            <h3 className="font-semibold text-slate-800">AI Tutor for {studentProfile?.classLevel || 'Students'}</h3>
+            <p className="text-xs text-slate-500">Powered by online resources, practice games & your uploaded materials</p>
           </div>
           {upcomingExam && (
             <div className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-xs font-medium">
@@ -249,6 +314,13 @@ Just let me know how you'd like to proceed!`;
             </div>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-emerald-100 bg-white/70 px-4 py-3">
+        {studentProfile?.improvementSubjects.map((subject) => (
+          <span key={subject} className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"><Trophy className="mr-1 inline h-3 w-3" />{subject}</span>
+        ))}
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">{studyMaterials.length} material(s) uploaded</span>
       </div>
 
       {/* Messages */}

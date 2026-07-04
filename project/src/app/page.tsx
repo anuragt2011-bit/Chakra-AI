@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GraduationCap, Search, Menu, X, BookOpen, Brain, MessageCircle, Headphones, TrendingUp, Calendar, Target, Globe, ChevronLeft, LayoutDashboard, Award, Layers } from 'lucide-react';
+import { GraduationCap, Search, Menu, X, BookOpen, Brain, MessageCircle, TrendingUp, Calendar, Target, Globe, LayoutDashboard, Award, Layers, Phone, Mail, Chrome, UploadCloud, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 import { supabase, type EducationCategory, type ExamSchedule, type ComprehensiveSubject, type UserExam } from '@/lib/supabase';
 import { CategoryCard } from '@/components/category-card';
 import { ExamTracker } from '@/components/exam-tracker';
@@ -18,7 +18,26 @@ type ExamWithCategory = ExamSchedule & {
   education_categories: { name: string };
 };
 
-type TabType = 'dashboard' | 'subjects' | 'exams' | 'ai-tutor';
+type TabType = 'dashboard' | 'subjects' | 'exams' | 'materials' | 'ai-tutor';
+
+type StudentProfile = {
+  name: string;
+  phone: string;
+  email: string;
+  authMethod: 'phone' | 'google' | 'email';
+  classLevel: string;
+  improvementSubjects: string[];
+};
+
+type StudyMaterial = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  subject: string;
+  note: string;
+  addedAt: string;
+};
 
 export default function Home() {
   const [categories, setCategories] = useState<CategoryWithExam[]>([]);
@@ -31,6 +50,16 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [authMethod, setAuthMethod] = useState<StudentProfile['authMethod']>('phone');
+  const [studentName, setStudentName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [classLevel, setClassLevel] = useState('Class 10');
+  const [selectedImprovementSubjects, setSelectedImprovementSubjects] = useState<string[]>(['Mathematics']);
+  const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([]);
+  const [materialSubject, setMaterialSubject] = useState('General');
+  const [materialNote, setMaterialNote] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -78,10 +107,133 @@ export default function Home() {
 
   const activeUserExams = userExams.filter(e => e.preparation_status === 'in_progress' || e.preparation_status === 'reviewing')[0];
 
+
+  const improvementOptions = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'History', 'Economics', 'Geography', 'Languages'];
+
+  const toggleImprovementSubject = (subject: string) => {
+    setSelectedImprovementSubjects((current) =>
+      current.includes(subject) ? current.filter((item) => item !== subject) : [...current, subject]
+    );
+  };
+
+  const handleStudentEntry = () => {
+    if (!studentName.trim() || !classLevel.trim() || selectedImprovementSubjects.length === 0) return;
+
+    setStudentProfile({
+      name: studentName.trim(),
+      phone: phoneNumber.trim(),
+      email: email.trim(),
+      authMethod,
+      classLevel,
+      improvementSubjects: selectedImprovementSubjects,
+    });
+  };
+
+  const handleMaterialUpload = (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const newMaterials = Array.from(files).map((file) => ({
+      id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+      name: file.name,
+      type: file.type || 'Study file',
+      size: file.size,
+      subject: materialSubject,
+      note: materialNote,
+      addedAt: new Date().toISOString(),
+    }));
+
+    setStudyMaterials((current) => [...newMaterials, ...current]);
+    setMaterialNote('');
+    setActiveTab('ai-tutor');
+  };
+
+  if (!studentProfile) {
+    return (
+      <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_#ccfbf1,_transparent_36%),linear-gradient(135deg,_#0f172a_0%,_#134e4a_52%,_#0f766e_100%)] px-4 py-8 text-white">
+        <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-8 lg:grid-cols-[1fr_0.9fr]">
+          <section className="space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              <ShieldCheck className="h-4 w-4 text-emerald-200" /> Secure student entry • personalized learning
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
+                Welcome to a smarter, more creative AI study space.
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg text-emerald-50/90">
+                Authenticate, choose your class and improvement subjects, upload your own notes, and practice with an AI tutor that explains, quizzes, and solves questions around your material.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                ['Authenticate', 'Phone, Google, or email sign-in flow'],
+                ['Personalize', 'Class level and weak subjects first'],
+                ['Upload', 'Notes, PDFs, images, worksheets'],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <Sparkles className="mb-3 h-5 w-5 text-amber-200" />
+                  <h3 className="font-semibold">{title}</h3>
+                  <p className="mt-1 text-sm text-emerald-50/80">{body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/20 bg-white p-6 text-slate-900 shadow-2xl">
+            <div className="mb-5">
+              <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">Student authentication</p>
+              <h2 className="text-2xl font-bold">Create your learning profile</h2>
+            </div>
+
+            <div className="mb-5 grid grid-cols-3 gap-2">
+              {[
+                { id: 'phone', label: 'Phone', icon: Phone },
+                { id: 'google', label: 'Google', icon: Chrome },
+                { id: 'email', label: 'Email', icon: Mail },
+              ].map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => setAuthMethod(method.id as StudentProfile['authMethod'])}
+                  className={`rounded-2xl border p-3 text-sm font-medium transition ${authMethod === method.id ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-slate-300'}`}
+                >
+                  <method.icon className="mx-auto mb-1 h-5 w-5" /> {method.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              <input value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Student name" className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Phone number" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <select value={classLevel} onChange={(e) => setClassLevel(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500">
+                {['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'College', 'Competitive Exam'].map((level) => <option key={level}>{level}</option>)}
+              </select>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-700">Subjects you want to improve</p>
+                <div className="flex flex-wrap gap-2">
+                  {improvementOptions.map((subject) => (
+                    <button key={subject} onClick={() => toggleImprovementSubject(subject)} className={`rounded-full px-3 py-2 text-sm transition ${selectedImprovementSubjects.includes(subject) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                      {selectedImprovementSubjects.includes(subject) && <CheckCircle2 className="mr-1 inline h-4 w-4" />}{subject}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={handleStudentEntry} disabled={!studentName.trim() || selectedImprovementSubjects.length === 0} className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-3 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50">
+                Enter my AI classroom
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'subjects' as const, label: 'Subjects', icon: BookOpen },
     { id: 'exams' as const, label: 'My Exams', icon: Calendar },
+    { id: 'materials' as const, label: 'My Materials', icon: UploadCloud },
     { id: 'ai-tutor' as const, label: 'AI Tutor', icon: MessageCircle },
   ];
 
@@ -174,6 +326,23 @@ export default function Home() {
           </div>
         ) : (
           <>
+            <section className="mb-8 overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 via-teal-900 to-emerald-700 p-6 text-white shadow-xl">
+              <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-emerald-200">Welcome back, {studentProfile.name}</p>
+                  <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Your {studentProfile.classLevel} AI classroom is ready.</h1>
+                  <p className="mt-3 max-w-2xl text-emerald-50/90">Ask questions, upload materials, practice weak subjects, and get step-by-step solutions that match your notes and goals.</p>
+                </div>
+                <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-sm text-emerald-100">Improvement focus</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {studentProfile.improvementSubjects.map((subject) => <span key={subject} className="rounded-full bg-white px-3 py-1 text-sm font-medium text-teal-700">{subject}</span>)}
+                  </div>
+                  <button onClick={() => setActiveTab('materials')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-200"><UploadCloud className="h-4 w-4" /> Upload study material</button>
+                </div>
+              </div>
+            </section>
+
             {/* Dashboard Tab */}
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
@@ -429,6 +598,48 @@ export default function Home() {
               </div>
             )}
 
+
+            {/* Materials Tab */}
+            {activeTab === 'materials' && (
+              <div className="mx-auto max-w-5xl space-y-6">
+                <div className="rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700"><UploadCloud className="h-6 w-6" /></div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">Upload your own study materials</h2>
+                      <p className="mt-1 text-slate-600">Add notes, PDFs, worksheets, images, assignments, or question papers. The AI tutor will reference these files in practice prompts and solution guidance.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-[0.7fr_1fr]">
+                    <div className="space-y-3">
+                      <input value={materialSubject} onChange={(e) => setMaterialSubject(e.target.value)} placeholder="Subject for these files" className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+                      <textarea value={materialNote} onChange={(e) => setMaterialNote(e.target.value)} placeholder="Optional note: chapter, exam, or what you need help with" className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+                    </div>
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-emerald-200 bg-emerald-50/70 p-8 text-center transition hover:border-emerald-400 hover:bg-emerald-50">
+                      <UploadCloud className="mb-3 h-10 w-10 text-emerald-600" />
+                      <span className="font-semibold text-slate-800">Drop files here or click to upload</span>
+                      <span className="mt-1 text-sm text-slate-500">PDF, image, text, document, or slides</span>
+                      <input type="file" multiple className="hidden" onChange={(e) => handleMaterialUpload(e.target.files)} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  {studyMaterials.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500">No materials yet. Upload your notes to unlock material-aware AI help.</div>
+                  ) : studyMaterials.map((material) => (
+                    <div key={material.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-800">{material.name}</h3>
+                        <p className="text-sm text-slate-500">{material.subject} • {(material.size / 1024).toFixed(1)} KB {material.note ? `• ${material.note}` : ''}</p>
+                      </div>
+                      <button onClick={() => setActiveTab('ai-tutor')} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Ask AI</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* AI Tutor Tab */}
             {activeTab === 'ai-tutor' && (
               <div className="max-w-3xl mx-auto">
@@ -437,6 +648,8 @@ export default function Home() {
                     selectedCategory={selectedCategory?.name}
                     selectedSubject={selectedSubject}
                     upcomingExam={activeUserExams}
+                    studentProfile={studentProfile}
+                    studyMaterials={studyMaterials}
                   />
                 </div>
 
