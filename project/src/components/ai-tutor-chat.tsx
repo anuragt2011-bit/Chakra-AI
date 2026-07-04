@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, Sparkles, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, UploadCloud, Wand2, Trophy } from 'lucide-react';
+import { Send, Bot, Sparkles, Calendar, BookOpen, Globe, ExternalLink, Search, FileText, Video, UploadCloud, Wand2, Trophy, Mic2, Volume2, Layers, Download, HelpCircle } from 'lucide-react';
 import { supabase, type ComprehensiveSubject, type UserExam, type OnlineResource } from '@/lib/supabase';
 
 interface Message {
@@ -36,14 +36,16 @@ interface AITutorChatProps {
   upcomingExam?: UserExam | null;
   studentProfile?: StudentProfile | null;
   studyMaterials?: StudyMaterial[];
+  onNavigate?: (tab: 'dashboard' | 'subjects' | 'exams' | 'materials' | 'ai-tutor') => void;
 }
 
-export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam, studentProfile, studyMaterials = [] }: AITutorChatProps) {
+export function AITutorChat({ selectedCategory, selectedSubject, upcomingExam, studentProfile, studyMaterials = [], onNavigate }: AITutorChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [subjects, setSubjects] = useState<ComprehensiveSubject[]>([]);
   const [userExams, setUserExams] = useState<UserExam[]>([]);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -106,6 +108,15 @@ How can I help you today?`;
     if (examsRes.data) setUserExams(examsRes.data);
   };
 
+  const speak = (text: string) => {
+    if (!voiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#•]/g, ''));
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -126,7 +137,13 @@ How can I help you today?`;
 
       const lowerInput = input.toLowerCase();
 
-      if (lowerInput.includes('material') || lowerInput.includes('upload') || lowerInput.includes('notes') || lowerInput.includes('pdf')) {
+      if (lowerInput.includes('flashcard') || lowerInput.includes('flash card')) {
+        const source = studyMaterials[0]?.name || selectedSubject?.name || 'your current chapter';
+        response = `**Flashcards from ${source}**\n\n1. Front: What is the main concept?\n   Back: Define it in one sentence, then add one example from your notes.\n\n2. Front: Which formula/rule is used most?\n   Back: Write the formula, meaning of each term, and one solved step.\n\n3. Front: What mistake should I avoid?\n   Back: Check units, signs, keywords, and final answer reasonableness.\n\n4. Front: How can this appear in an exam?\n   Back: As a definition, short answer, MCQ, numerical, or diagram-based question.\n\nUse **My Materials** to upload a specific chapter, then ask: "Make 20 flashcards from this file."`;
+      } else if (lowerInput.includes('download') || lowerInput.includes('resource') || lowerInput.includes('online')) {
+        const subject = selectedSubject?.name || studentProfile?.improvementSubjects[0] || 'your subject';
+        response = `**Downloadable and online resources for ${subject}**\n\n• OpenStax / NCERT-style textbook notes for theory\n• Khan Academy practice for foundation concepts\n• MIT OCW / university notes for advanced topics\n• YouTube explainers for visual learning\n• Previous-year questions and formula sheets for exam practice\n\nChakra-AI plan: tell me your exact chapter and I will organize resources into **Watch → Read → Practice → Revise** with flashcards and a quiz.`;
+      } else if (lowerInput.includes('material') || lowerInput.includes('upload') || lowerInput.includes('notes') || lowerInput.includes('pdf')) {
         if (studyMaterials.length > 0) {
           const materialList = studyMaterials.slice(0, 5).map((material, index) => `${index + 1}. ${material.name} (${material.subject})${material.note ? ` - ${material.note}` : ''}`).join('\n');
           response = `I found your uploaded study materials and will use them as the center of your learning plan:
@@ -141,7 +158,8 @@ ${materialList}
 
 Ask me: "Create a quiz from my notes" or paste a question from your file.`;
         } else {
-          response = 'Please open **My Materials** and upload your PDFs, notes, images, worksheets, or question papers. After that, I can summarize them, create quizzes, and solve questions according to your own material.';
+          onNavigate?.('materials');
+          response = 'I am opening **My Materials** for you. Upload your PDFs, notes, images, worksheets, or question papers there. After that, I can summarize them, create quizzes, and solve questions according to your own material.';
         }
       } else if (lowerInput.includes('solve') || lowerInput.includes('answer') || lowerInput.includes('question')) {
         const focus = selectedSubject?.name || studentProfile?.improvementSubjects[0] || 'the topic';
@@ -157,14 +175,8 @@ Ask me: "Create a quiz from my notes" or paste a question from your file.`;
 Paste the full question (or upload its image/material in **My Materials**) and I will provide a complete, student-friendly solution with practice follow-ups.`;
       } else if (lowerInput.includes('quiz') || lowerInput.includes('practice')) {
         const focusSubjects = studentProfile?.improvementSubjects.join(', ') || selectedSubject?.name || 'your subject';
-        response = `Great choice! Here is a quick practice format for **${focusSubjects}**:
-
-**Warm-up:** 3 easy concept checks
-**Core practice:** 5 exam-style questions
-**Challenge:** 1 higher-order thinking problem
-**Reflection:** I explain mistakes and suggest what to revise next
-
-${studyMaterials.length ? 'Because you uploaded materials, I can align the practice to your notes. Tell me which file or chapter to use.' : 'Upload your materials for practice that matches your class notes exactly.'}`;
+        const materialName = studyMaterials[0]?.name;
+        response = `**Chakra-AI Quiz Builder: ${focusSubjects}**\n\n${materialName ? `Using your uploaded material: **${materialName}**` : 'Upload a material to make this quiz match your notes exactly.'}\n\n**Section A — Quick Recall**\n1. Define the most important term from this chapter.\n2. List two facts/formulas you must remember.\n\n**Section B — Application**\n3. Solve one example using the main rule or formula.\n4. Explain why each step is valid.\n\n**Section C — Exam Challenge**\n5. A tricky question will mix two concepts. Identify both and solve slowly.\n\nReply with your answers. I will grade them, explain mistakes, update readiness, and turn weak points into flashcards.`;
       } else if (lowerInput.includes('exam') && (lowerInput.includes('when') || lowerInput.includes('date'))) {
         if (userExams.length > 0) {
           const exam = userExams[0];
@@ -283,6 +295,7 @@ Just let me know how you'd like to proceed!`;
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      speak(response);
       setIsTyping(false);
     }, 1000);
   };
@@ -293,7 +306,10 @@ Just let me know how you'd like to proceed!`;
     { icon: BookOpen, label: 'Create study plan', prompt: 'Create a study plan for me' },
     { icon: Search, label: 'Explain a topic', prompt: 'Explain a topic to me' },
     { icon: UploadCloud, label: 'Use my materials', prompt: 'Use my uploaded materials to help me study' },
-    { icon: Wand2, label: 'Practice quiz', prompt: 'Create a practice quiz for my weak subjects' },
+    { icon: Wand2, label: 'Practice quiz', prompt: 'Create a practice quiz using my uploaded materials' },
+    { icon: Layers, label: 'Flashcards', prompt: 'Create flashcards from my materials' },
+    { icon: Download, label: 'Downloads', prompt: 'Find downloadable online resources for my subject' },
+    { icon: HelpCircle, label: 'Solve book question', prompt: 'Solve this book question step by step' },
   ];
 
   return (
@@ -305,9 +321,12 @@ Just let me know how you'd like to proceed!`;
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-slate-800">AI Tutor for {studentProfile?.classLevel || 'Students'}</h3>
-            <p className="text-xs text-slate-500">Powered by online resources, practice games & your uploaded materials</p>
+            <h3 className="font-semibold text-slate-800">Chakra-AI Command Tutor for {studentProfile?.classLevel || 'Students'}</h3>
+            <p className="text-xs text-slate-500">Controls quizzes, flashcards, resources, question solving & voice explanations</p>
           </div>
+          <button onClick={() => setVoiceEnabled((current) => !current)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${voiceEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            {voiceEnabled ? <Volume2 className="mr-1 inline h-4 w-4" /> : <Mic2 className="mr-1 inline h-4 w-4" />}Voice {voiceEnabled ? 'on' : 'off'}
+          </button>
           {upcomingExam && (
             <div className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-xs font-medium">
               {Math.ceil((new Date(upcomingExam.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days to exam

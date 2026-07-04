@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Calendar, Clock, Target, Trash2, Edit, AlertTriangle, CheckCircle, Play, Pause, CalendarPlus } from 'lucide-react';
+import { Calendar, Clock, Target, Trash2, Edit, AlertTriangle, CheckCircle, Play, Pause, CalendarPlus, BookOpen } from 'lucide-react';
 import { supabase, type UserExam, type ComprehensiveSubject } from '@/lib/supabase';
 
 interface ExamSchedulerProps {
@@ -22,6 +22,9 @@ export function ExamScheduler({ onUpdate }: ExamSchedulerProps) {
   const [targetScore, setTargetScore] = useState(70);
   const [reviewDays, setReviewDays] = useState(1);
   const [notes, setNotes] = useState('');
+
+  const fallbackSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'History', 'Economics', 'Geography', 'Political Science', 'Hindi', 'Sanskrit'];
+  const subjectOptions = subjects.length > 0 ? subjects.map((subject) => subject.name) : fallbackSubjects;
 
   useEffect(() => {
     fetchData();
@@ -197,11 +200,25 @@ export function ExamScheduler({ onUpdate }: ExamSchedulerProps) {
                   onChange={(e) => setTargetSubject(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="">Select subject (optional)</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
+                  <option value="">Select subject or type below</option>
+                  {subjectOptions.map((subject) => (
+                    <option key={subject} value={subject}>{subject}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Or type custom subject</label>
+                <div className="relative">
+                  <BookOpen className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={targetSubject}
+                    onChange={(e) => setTargetSubject(e.target.value)}
+                    placeholder="e.g., Algebra, Organic Chemistry, World History"
+                    className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

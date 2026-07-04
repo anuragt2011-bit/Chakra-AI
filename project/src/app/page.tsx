@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GraduationCap, Search, Menu, X, BookOpen, Brain, MessageCircle, TrendingUp, Calendar, Target, Globe, LayoutDashboard, Award, Layers, Phone, Mail, Chrome, UploadCloud, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { GraduationCap, Search, Menu, X, BookOpen, Brain, MessageCircle, TrendingUp, Calendar, Target, Globe, LayoutDashboard, Award, Layers, Phone, Mail, Chrome, UploadCloud, ShieldCheck, Sparkles, CheckCircle2, LockKeyhole, UserPlus, LogIn, Wand2, Mic2, Download, Files, HelpCircle } from 'lucide-react';
 import { supabase, type EducationCategory, type ExamSchedule, type ComprehensiveSubject, type UserExam } from '@/lib/supabase';
 import { CategoryCard } from '@/components/category-card';
 import { ExamTracker } from '@/components/exam-tracker';
@@ -27,6 +27,8 @@ type StudentProfile = {
   authMethod: 'phone' | 'google' | 'email';
   classLevel: string;
   improvementSubjects: string[];
+  accountMode: 'login' | 'signup';
+  verifiedContact: string;
 };
 
 type StudyMaterial = {
@@ -60,6 +62,9 @@ export default function Home() {
   const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([]);
   const [materialSubject, setMaterialSubject] = useState('General');
   const [materialNote, setMaterialNote] = useState('');
+  const [accountMode, setAccountMode] = useState<'login' | 'signup'>('signup');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -116,8 +121,25 @@ export default function Home() {
     );
   };
 
+  const getAuthContact = () => {
+    if (authMethod === 'phone') return phoneNumber.trim();
+    if (authMethod === 'email') return email.trim();
+    return email.trim() || 'Google account';
+  };
+
+  const sendVerification = () => {
+    const contact = getAuthContact();
+    if (!contact || (authMethod === 'google' && contact === 'Google account')) return;
+    setVerificationSent(true);
+    setVerificationCode('');
+  };
+
   const handleStudentEntry = () => {
-    if (!studentName.trim() || !classLevel.trim() || selectedImprovementSubjects.length === 0) return;
+    const contact = getAuthContact();
+    const isGoogleVerified = authMethod === 'google' && email.trim().includes('@');
+    const isCodeVerified = verificationSent && verificationCode.trim() === '123456';
+
+    if (!studentName.trim() || !classLevel.trim() || selectedImprovementSubjects.length === 0 || (!isGoogleVerified && !isCodeVerified)) return;
 
     setStudentProfile({
       name: studentName.trim(),
@@ -126,6 +148,8 @@ export default function Home() {
       authMethod,
       classLevel,
       improvementSubjects: selectedImprovementSubjects,
+      accountMode,
+      verifiedContact: contact,
     });
   };
 
@@ -157,17 +181,17 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-                Welcome to a smarter, more creative AI study space.
+                Chakra-AI: your Astra-style exam prep command center.
               </h1>
               <p className="mt-5 max-w-2xl text-lg text-emerald-50/90">
-                Authenticate, choose your class and improvement subjects, upload your own notes, and practice with an AI tutor that explains, quizzes, and solves questions around your material.
+                Log in or sign up once, verify phone/email/Google, upload your own materials, and let Chakra-AI control quizzes, flashcards, resources, voice explanations, and question solving across the website.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                ['Authenticate', 'Phone, Google, or email sign-in flow'],
-                ['Personalize', 'Class level and weak subjects first'],
-                ['Upload', 'Notes, PDFs, images, worksheets'],
+                ['Verified Entry', 'Phone OTP, email code, or Google verification'],
+                ['AI Control', 'One assistant guides tools across the site'],
+                ['Practice Engine', 'Quizzes, flashcards, resources, voice help'],
               ].map(([title, body]) => (
                 <div key={title} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                   <Sparkles className="mb-3 h-5 w-5 text-amber-200" />
@@ -180,8 +204,16 @@ export default function Home() {
 
           <section className="rounded-[2rem] border border-white/20 bg-white p-6 text-slate-900 shadow-2xl">
             <div className="mb-5">
-              <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">Student authentication</p>
-              <h2 className="text-2xl font-bold">Create your learning profile</h2>
+              <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">Chakra-AI account</p>
+              <h2 className="text-2xl font-bold">Log in or sign up</h2>
+            </div>
+
+            <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+              {[{ id: 'signup', label: 'Sign up', icon: UserPlus }, { id: 'login', label: 'Log in', icon: LogIn }].map((mode) => (
+                <button key={mode.id} onClick={() => setAccountMode(mode.id as 'login' | 'signup')} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${accountMode === mode.id ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}>
+                  <mode.icon className="mr-1 inline h-4 w-4" />{mode.label}
+                </button>
+              ))}
             </div>
 
             <div className="mb-5 grid grid-cols-3 gap-2">
@@ -206,6 +238,17 @@ export default function Home() {
                 <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Phone number" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Verify {authMethod === 'phone' ? 'phone number' : authMethod === 'email' ? 'email' : 'Google email'}</p>
+                    <p className="text-xs text-slate-500">Demo code: 123456. Google is verified when an email is entered.</p>
+                  </div>
+                  <button onClick={sendVerification} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white"><LockKeyhole className="mr-1 inline h-3 w-3" />Send code</button>
+                </div>
+                <input value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} placeholder="Enter verification code" className="mt-3 w-full rounded-xl border border-emerald-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                {(verificationCode === '123456' || (authMethod === 'google' && email.includes('@'))) && <p className="mt-2 text-xs font-semibold text-emerald-700"><CheckCircle2 className="mr-1 inline h-4 w-4" />Verified contact: {getAuthContact()}</p>}
+              </div>
               <select value={classLevel} onChange={(e) => setClassLevel(e.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500">
                 {['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12', 'College', 'Competitive Exam'].map((level) => <option key={level}>{level}</option>)}
               </select>
@@ -219,8 +262,8 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-              <button onClick={handleStudentEntry} disabled={!studentName.trim() || selectedImprovementSubjects.length === 0} className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-3 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50">
-                Enter my AI classroom
+              <button onClick={handleStudentEntry} disabled={!studentName.trim() || selectedImprovementSubjects.length === 0 || (!(verificationSent && verificationCode.trim() === '123456') && !(authMethod === 'google' && email.includes('@')))} className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-3 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50">
+                Enter Chakra-AI
               </button>
             </div>
           </section>
@@ -228,6 +271,13 @@ export default function Home() {
       </div>
     );
   }
+
+  const learningTools = [
+    { icon: Wand2, title: 'AI Controller', text: 'Ask Chakra-AI to create plans, explain questions, open tools, and guide your next action.' },
+    { icon: Files, title: 'Material Quizzes', text: 'Upload notes and instantly generate practice quizzes, flashcards, and chapter summaries.' },
+    { icon: Download, title: 'Online Resources', text: 'Find downloadable resources, videos, textbooks, and revision links for weak subjects.' },
+    { icon: Mic2, title: 'Voice Explanations', text: 'Use AI voice to hear step-by-step answers and revision guidance aloud.' },
+  ];
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -238,7 +288,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_#dbeafe,_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#ecfeff_100%)]">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
@@ -255,8 +305,8 @@ export default function Home() {
                   <GraduationCap className="w-6 h-6 text-white" />
                 </div>
                 <div className="hidden sm:block">
-                  <span className="text-xl font-semibold text-slate-800">LearnSmart</span>
-                  <p className="text-xs text-slate-500">AI-Powered Learning Platform</p>
+                  <span className="text-xl font-semibold text-slate-800">Chakra-AI</span>
+                  <p className="text-xs text-slate-500">Astra-style AI exam prep platform</p>
                 </div>
               </div>
             </div>
@@ -330,8 +380,8 @@ export default function Home() {
               <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-wide text-emerald-200">Welcome back, {studentProfile.name}</p>
-                  <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Your {studentProfile.classLevel} AI classroom is ready.</h1>
-                  <p className="mt-3 max-w-2xl text-emerald-50/90">Ask questions, upload materials, practice weak subjects, and get step-by-step solutions that match your notes and goals.</p>
+                  <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Your {studentProfile.classLevel} Chakra-AI command center is ready.</h1>
+                  <p className="mt-3 max-w-2xl text-emerald-50/90">Ask Chakra-AI to control the website: build quizzes, create flashcards, find online resources, speak explanations, schedule exams, and solve book questions from your materials.</p>
                 </div>
                 <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                   <p className="text-sm text-emerald-100">Improvement focus</p>
@@ -368,6 +418,16 @@ export default function Home() {
                     <p className="text-3xl font-bold">9</p>
                     <p className="text-purple-100 text-sm">Achievements</p>
                   </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {learningTools.map((tool) => (
+                    <button key={tool.title} onClick={() => setActiveTab(tool.title === 'Material Quizzes' ? 'materials' : 'ai-tutor')} className="group rounded-2xl border border-white/80 bg-white/80 p-5 text-left shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="mb-4 inline-flex rounded-2xl bg-gradient-to-br from-indigo-500 to-emerald-500 p-3 text-white shadow-lg"><tool.icon className="h-5 w-5" /></div>
+                      <h3 className="font-bold text-slate-900">{tool.title}</h3>
+                      <p className="mt-1 text-sm text-slate-600">{tool.text}</p>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Subject Coverage Info */}
@@ -633,7 +693,7 @@ export default function Home() {
                         <h3 className="font-semibold text-slate-800">{material.name}</h3>
                         <p className="text-sm text-slate-500">{material.subject} • {(material.size / 1024).toFixed(1)} KB {material.note ? `• ${material.note}` : ''}</p>
                       </div>
-                      <button onClick={() => setActiveTab('ai-tutor')} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Ask AI</button>
+                      <div className="flex flex-wrap gap-2"><button onClick={() => setActiveTab('ai-tutor')} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Ask AI</button><button onClick={() => setActiveTab('ai-tutor')} className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Create quiz</button></div>
                     </div>
                   ))}
                 </div>
@@ -650,6 +710,7 @@ export default function Home() {
                     upcomingExam={activeUserExams}
                     studentProfile={studentProfile}
                     studyMaterials={studyMaterials}
+                    onNavigate={setActiveTab}
                   />
                 </div>
 
@@ -688,7 +749,7 @@ export default function Home() {
               Visual dashboards show % mastered, daily goals, and unlocked stages.
             </p>
             <p className="text-slate-400 text-xs">
-              &copy; 2026 LearnSmart Education Platform. All rights reserved.
+              &copy; 2026 Chakra-AI. All rights reserved.
             </p>
           </div>
         </div>
